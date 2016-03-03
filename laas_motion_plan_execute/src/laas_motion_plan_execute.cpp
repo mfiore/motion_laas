@@ -86,11 +86,16 @@ motion_msgs::MotionPlanExecuteResult executeGtpPlan(Server* server, string goal,
 	//if this is an action supported by gtp create a gtp plan
 	gtp_ros_msg::ReqAns gtp_report=gtp_bridge_->planGtpTask(goal,goal_parameters);
 	if (gtp_report.success) { //if the plan is successfull
+		ROS_INFO("LAAS_MOTION_PLAN_EXECUTE plan successfull. Getting subtrajectories");
+		gtp_report=gtp_bridge_->getDetails();
+		ROS_INFO("LAAS_MOTION_PLAN_EXECUTE n trajectories %ld",gtp_report.subTrajs.size());
 		for (int i=0; i<gtp_report.subTrajs.size();i++) {  //for each trajectory of the plan
+			gtp_bridge_->update();
 			gtp_ros_msg::SubTraj sub_traj=gtp_report.subTrajs[i];
 			string arm=getGtpSide(sub_traj.armId); //convert gtp arm to RIGHT or LEFT
 			bool motion_ok=true;
 			
+			ROS_INFO("LAAS_MOTION_PLAN_EXECUTE trajectory n %i is %s",i,sub_traj.subTrajName.c_str());
 			if (sub_traj.subTrajName=="release") {
 				motion_ok=pr2motion_bridge_->openGripper(arm);
 			}
@@ -146,6 +151,13 @@ motion_msgs::MotionPlanExecuteResult executeGtpPlan(Server* server, string goal,
 			}
 		}
 	}
+	else {
+		ROS_INFO("LAAS_MOTION_PLAN_EXECUTE plan failed");
+		result.report.status="FAILED";
+		result.report.details;
+		return result;
+	}
+	ROS_INFO("LAAS_MOTION_PLAN_EXECUTE plan completed");
 	result.report.status="COMPLETED";
 	result.report.details="";
 	return result;	
@@ -165,9 +177,10 @@ void planExecute(const motion_msgs::MotionPlanExecuteGoalConstPtr &goal,Server* 
 	if (std::find(gtp_actions_.begin(),gtp_actions_.end(),goal->goal)!=gtp_actions_.end()) { 
 		bool completed=false;
 		while (ros::ok()) { //the ifs in the loop will return when they have a result, but if the plan is paused the loop will go on
-		motion_msgs::MotionPlanExecuteResult gtp_status=executeGtpPlan(server,goal_name,goal_parameters);
+			ROS_INFO("LAAS_MOTION_PLAN_EXECUTE executing a gtp plan");
+			motion_msgs::MotionPlanExecuteResult gtp_status=executeGtpPlan(server,goal_name,goal_parameters);
 		
-			if (gtp_status.report.status!="FAILED") {
+			if (gtp_status.report.status=="FAILED") {
 				server->setAborted(gtp_status);
 				return;
 			}
@@ -209,7 +222,7 @@ int main(int argc, char **argv) {
 
 	ROS_INFO("LAAS_MOTION_PLAN_EXECUTE started node");
 	node_handle.getParam("/robot/name",robot_name_);
-	node_handle.getParam("/supervision/gtp_actions",gtp_actions_);
+	node_handle.getParam("/motion/gtp_actions",gtp_actions_);
 
 	setIsPaused(false);
 
@@ -227,6 +240,8 @@ int main(int argc, char **argv) {
 
 	Server server(node_handle,"motion/motion_plan_execute/", boost::bind(&planExecute,_1,&server),false); 
 	server.start();
+
+	gtp_bridge_->update();	
 	ROS_INFO("LAAS_MOTION_PLAN_EXECUTE ready");
 	ros::spin();
 }

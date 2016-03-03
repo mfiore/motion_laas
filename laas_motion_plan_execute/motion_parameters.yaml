@@ -1,0 +1,6 @@
+---
+robot:
+  name: PR2_ROBOT
+motion: 
+  gtp_actions: 
+    - moveTo

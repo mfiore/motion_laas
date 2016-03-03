@@ -17,6 +17,9 @@ public:
 	gtp_ros_msg::ReqAns planGtpTask(string action, map<string,string> parameters);
 	void removeAttachement();
 	bool loadGtpTrajectory(int i);
+	void update();
+	gtp_ros_msg::ReqAns getDetails();
+
 
 
 private:

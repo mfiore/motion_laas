@@ -1,0 +1,7 @@
+<launch>
+	<rosparam command="load" file="$(find laas_motion_plan_execute)/motion_parameters.yaml" />
+
+	<node name="gtp_ros_bridge_node" pkg="gtp_ros_bridge" type="gtp_ros_bridge_node"  />
+	<node name="laas_motion_plan_execute" pkg="laas_motion_plan_execute" type="laas_motion_plan_execute" output="screen"/>
+
+</launch>

@@ -5,11 +5,13 @@
 
 
 #include <ros/ros.h>
-#include <pr2motion/Arm_MoveAction.h>
+#include <pr2motion/Arm_Right_MoveAction.h>
 #include <pr2motion/Head_MoveAction.h>
+#include <pr2motion/InitAction.h>
 #include <pr2motion/Gripper_OperateAction.h>
 #include <pr2motion/Gripper_Left_Stop.h>
 #include <pr2motion/Gripper_Right_Stop.h>
+#include <pr2motion/connect_port.h>
 
 #include <actionlib/server/simple_action_server.h>
 #include <actionlib/client/simple_action_client.h>
@@ -18,9 +20,10 @@
 
 using namespace std;
 
-typedef actionlib::SimpleActionClient<pr2motion::Arm_MoveAction> ArmClient;
+typedef actionlib::SimpleActionClient<pr2motion::Arm_Right_MoveAction> ArmClient;
 typedef actionlib::SimpleActionClient<pr2motion::Head_MoveAction> HeadClient;
 typedef actionlib::SimpleActionClient<pr2motion::Gripper_OperateAction> GripperClient;
+typedef actionlib::SimpleActionClient<pr2motion::InitAction> InitClient;
 
 
 class Pr2MotionBridge {
@@ -44,8 +47,11 @@ private:
 	ArmClient arm_client_;
 	HeadClient head_client_;
 	GripperClient gripper_client_;
+	InitClient init_client_;
+	
 	ros::ServiceClient gripper_left_stop_client_;
 	ros::ServiceClient gripper_right_stop_client_;
+	ros::ServiceClient connect_port_client_;
 
 	bool is_arm_completed_;
 	bool has_arm_succeded_;
@@ -56,11 +62,14 @@ private:
 	void setArmSucceded(bool succeded);
 
 	void armDoneCb(const actionlib::SimpleClientGoalState& state,
-	            const pr2motion::Arm_MoveResultConstPtr& result);
+	            const pr2motion::Arm_Right_MoveResultConstPtr& result);
 
 
 	int getSide(string side);
 	bool operateGripper(int gripper, int mode);
+    void connect(string local, string remote);
+
 };
+
 
 #endif

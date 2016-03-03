@@ -2,10 +2,16 @@
 
 Pr2MotionBridge::Pr2MotionBridge(ros::NodeHandle node_handle):
 node_handle_(node_handle),
-arm_client_("pr2motion/Arm_Move",true),
+arm_client_("pr2motion/Arm_Right_Move",true),
 head_client_("pr2motion/Head_Move",true),
-gripper_client_("pr2motion/Gripper_Operate",true) 
+gripper_client_("pr2motion/Gripper_Operate",true),
+init_client_("pr2motion/Init",true)
+
 {
+	ROS_INFO("LAAS_MOTION_PLAN_EXECUTE initializing pr2motion");
+	init_client_.waitForServer();
+	pr2motion::InitGoal goal_msg;
+	init_client_.sendGoal(goal_msg);
 	ROS_INFO("LAAS_MOTION_PLAN_EXECUTE waiting for pr2motion actions and services");
 	arm_client_.waitForServer();
 	ROS_INFO("LAAS_MOTION_PLAN_EXECUTE connected to arm client");
@@ -13,29 +19,51 @@ gripper_client_("pr2motion/Gripper_Operate",true)
 	ROS_INFO("LAAS_MOTION_PLAN_EXECUTE connected to head client");
 	gripper_client_.waitForServer();
 	ROS_INFO("LAAS_MOTION_PLAN_EXECUTE connected to gripper client");
-	gripper_right_stop_client_=node_handle_.serviceClient<pr2motion::Gripper_Left_Stop>("pr2motion/Gripper_Left_Stop");
+	gripper_left_stop_client_=node_handle_.serviceClient<pr2motion::Gripper_Left_Stop>("pr2motion/Gripper_Left_Stop");
 	gripper_right_stop_client_=node_handle_.serviceClient<pr2motion::Gripper_Right_Stop>("pr2motion/Gripper_Right_Stop");
+	gripper_left_stop_client_.waitForExistence();
+	gripper_right_stop_client_.waitForExistence();
 	ROS_INFO("LAAS_MOTION_PLAN_EXECUTE connected to gripper services");
+	ROS_INFO("LAAS_MOTION_PLAN_EXECUTE connecting to gtp and joint states");
+	connect_port_client_=node_handle_.serviceClient<pr2motion::connect_port>("pr2motion/connect_port");
+	connect_port_client_.waitForExistence();
+	connect("joint_state","joint_states");
+	connect("head_controller_state","/head_traj_controller/state");
+	connect("traj","gtp_trajectory");
 	ROS_INFO("LAAS_MOTION_PLAN_EXECUTE connected to pr2 motion");	
+}
+
+void Pr2MotionBridge::connect(string local, string remote) {
+	pr2motion::connect_port srv;
+	srv.request.local=local;
+	srv.request.remote=remote;
+	connect_port_client_.call(srv);
+
 }
 
 void Pr2MotionBridge::moveArmGtp(string arm) {
 	has_arm_succeded_=false;
 	is_arm_completed_=false;
 
-	pr2motion::Arm_MoveGoal arm_goal;
-	arm_goal.side.value=getSide(arm);
-	arm_goal.traj_mode.value=pr2motion::pr2motion_TRAJ_MODE::pr2motion_TRAJ_PATH;
+	pr2motion::Arm_Right_MoveGoal arm_goal;
+	//arm_goal.side.value=getSide(arm);
+	arm_goal.traj_mode.value=pr2motion::pr2motion_TRAJ_MODE::pr2motion_TRAJ_GATECH;
 	arm_goal.path_mode.value=pr2motion::pr2motion_PATH_MODE::pr2motion_PATH_PORT;
 
 	arm_client_.sendGoal(arm_goal,boost::bind(&Pr2MotionBridge::armDoneCb,this,_1,_2),
 		ArmClient::SimpleActiveCallback(),
 		ArmClient::SimpleFeedbackCallback());
 }
-
 void Pr2MotionBridge::armDoneCb(const actionlib::SimpleClientGoalState& state,
-            const pr2motion::Arm_MoveResultConstPtr& result) {
-	setArmSucceded(true);
+            const pr2motion::Arm_Right_MoveResultConstPtr& result) {
+	ROS_INFO("LAAS_MOTION_PLAN_EXECUTE arm motion completed with result %d %s",result->genom_success,
+		result->genom_exdetail.c_str());
+	if (result->genom_success) {
+		setArmSucceded(true);
+	}
+	else {
+		setArmSucceded(false);
+	}
 	setArmCompleted(true);
 }
 

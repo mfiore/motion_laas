@@ -10,35 +10,11 @@ robot_name_(robot_name)
 }
 
 
-map<string,string> GtpBridge::convertParameters(map<string,string> parameters) {
-	map<string,string> return_parameters;
-	for (map<string,string>::iterator i=parameters.begin();i!=parameters.end();i++) {
-		if (i->first=="main_agent") {
-			return_parameters["mainAgent"]=i->second;
-		}
-		else if (i->first=="main_object") {
-			return_parameters["mainObject"]=i->second;
-		}
-		else if (i->first=="target_agent") {
-			return_parameters["targetAgent"]=i->second;
-		}
-		else if (i->first=="main_object") {
-			return_parameters["mainObject"]=i->second;
-		}
-		else if (i->first=="support_object") {
-			return_parameters["supportObject"]=i->second;
-		}
-		else if (i->first=="target") {
-			return_parameters["target"]=i->second;
-		}
-	}
-}
 
 gtp_ros_msg::ReqAns GtpBridge::planGtpTask(string action, map<string,string> parameters) {
 	gtp_ros_msg::requestGoal gtp_goal;
 	gtp_ros_msg::Req gtp_request;
 
-	map<string,string> gtp_parameters=convertParameters(parameters);
 
 	gtp_request.requestType="planning";
 	gtp_request.actionName=action;
@@ -113,15 +89,37 @@ gtp_ros_msg::ReqAns GtpBridge::planGtpTask(string action, map<string,string> par
 		ROS_INFO("LAAS_MOTION_PLAN_EXECUTE %s %s",gtp_request.involvedAgents[i].actionKey.c_str(),gtp_request.involvedAgents[i].agentName.c_str());
 	}
 
+	ROS_INFO("LAAS_MOTION_PLAN_EXECUTE sending goal");
 	gtp_client_.sendGoal(gtp_goal);
+	gtp_client_.waitForResult();
 	gtp_ros_msg::requestResultConstPtr result=gtp_client_.getResult();
 
 	if (result->ans.success) {
 		gtp_id_=result->ans.identifier.actionId;
 	}
 	else {
+	
 		gtp_id_=-1;
 	}
+	return result->ans;
+}
+
+gtp_ros_msg::ReqAns GtpBridge::getDetails() {
+	gtp_ros_msg::requestGoal gtp_goal;
+	gtp_ros_msg::Req gtp_request;
+
+	gtp_request.requestType="details";
+	gtp_request.loadAction.actionId=gtp_id_;
+	gtp_request.loadAction.alternativeId=0;
+
+	gtp_goal.req=gtp_request;
+
+	gtp_client_.sendGoal(gtp_goal);
+	gtp_client_.waitForResult();
+
+
+	gtp_ros_msg::requestResultConstPtr result=gtp_client_.getResult();
+
 	return result->ans;
 }
 
@@ -134,6 +132,20 @@ void GtpBridge::removeAttachement() {
 	gtp_goal.req=gtp_request;
 
 	gtp_client_.sendGoal(gtp_goal);
+
+
+}
+
+void GtpBridge::update() {
+	gtp_ros_msg::requestGoal gtp_goal;
+	gtp_ros_msg::Req gtp_request;
+
+	gtp_request.requestType="update";
+
+	gtp_goal.req=gtp_request;
+
+	gtp_client_.sendGoal(gtp_goal);
+	return;
 }
 
 bool GtpBridge::loadGtpTrajectory(int i) {
@@ -142,13 +154,16 @@ bool GtpBridge::loadGtpTrajectory(int i) {
 
 		gtp_request.requestType="load";
 
-		gtp_request.predecessorId.actionId=gtp_id_;
-		gtp_request.predecessorId.alternativeId=-1;
+		gtp_request.loadAction.actionId=gtp_id_;
+		gtp_request.loadAction.alternativeId=0;
 		gtp_request.loadSubTraj=i;
 
 		gtp_goal.req=gtp_request;
 
 		gtp_client_.sendGoal(gtp_goal);
+		gtp_client_.waitForResult();
 		gtp_ros_msg::requestResultConstPtr result=gtp_client_.getResult();
+
+
 		return result->ans.success;
 }
